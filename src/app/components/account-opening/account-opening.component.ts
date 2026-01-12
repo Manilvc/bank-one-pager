@@ -128,11 +128,25 @@ import { QRCodeComponent } from 'angularx-qrcode';
           <h2>Select Document for Verification</h2>
           <p class="step-description">Choose the KYC document to request from the customer</p>
           
+          @if (subjectsLoading()) {
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>Loading document types...</p>
+            </div>
+          }
+          
+          @if (subjectsError()) {
+            <div class="error-banner">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+              <span>{{ subjectsError() }}</span>
+            </div>
+          }
+          
           <div class="documents-grid">
-            @for (doc of documentSubjects; track doc.type) {
+            @for (doc of documentSubjects(); track doc.id) {
               <button 
                 class="document-card"
-                [class.selected]="selectedDocument()?.type === doc.type"
+                [class.selected]="selectedDocument()?.id === doc.id"
                 [style.--accent-color]="doc.color"
                 (click)="selectDocument(doc)">
                 <div class="document-icon" [style.background]="doc.color + '20'" [style.color]="doc.color">
@@ -151,9 +165,12 @@ import { QRCodeComponent } from 'angularx-qrcode';
                 <div class="document-info">
                   <h3>{{ doc.name }}</h3>
                   <p>{{ doc.description }}</p>
+                  @if (doc.did) {
+                    <span class="document-did" [title]="doc.did">{{ doc.did }}</span>
+                  }
                   <span class="field-count">{{ doc.fields.length }} fields available</span>
                 </div>
-                @if (selectedDocument()?.type === doc.type) {
+                @if (selectedDocument()?.id === doc.id) {
                   <div class="selected-badge" [style.background]="doc.color">
                     <svg viewBox="0 0 24 24" fill="currentColor">
                       <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
@@ -190,6 +207,12 @@ import { QRCodeComponent } from 'angularx-qrcode';
           <h2>Select Required Fields</h2>
           <p class="step-description">Enable the fields you need from the customer's {{ selectedDocument()?.name }}</p>
           
+          @if (subjectsLoading()) {
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>Loading fields...</p>
+            </div>
+          } @else {
           <div class="fields-container">
             <div class="fields-header">
               <div class="document-preview" [style.--accent-color]="selectedDocument()?.color" [style.color]="selectedDocument()?.color">
@@ -238,6 +261,7 @@ import { QRCodeComponent } from 'angularx-qrcode';
               }
             </div>
           </div>
+          }
           
           <div class="step-actions">
             <button class="secondary-btn" (click)="prevStep()">
@@ -248,7 +272,7 @@ import { QRCodeComponent } from 'angularx-qrcode';
             </button>
             <button 
               class="primary-btn" 
-              [disabled]="enabledFieldsCount() === 0"
+              [disabled]="enabledFieldsCount() === 0 || subjectsLoading()"
               (click)="nextStep()">
               Generate QR Code
               <svg viewBox="0 0 24 24" fill="currentColor">
@@ -265,10 +289,23 @@ import { QRCodeComponent } from 'angularx-qrcode';
           <h2>Presentation Definition Created</h2>
           <p class="step-description">Scan this QR code with the holder's wallet application</p>
           
+          @if (presentationLoading()) {
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>Generating QR Code...</p>
+            </div>
+          } @else if (presentationError()) {
+            <div class="error-banner">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+              <span>{{ presentationError() }}</span>
+            </div>
+          } @else {
           <div class="qr-container">
             <div class="qr-wrapper">
               <div class="qr-frame">
-                @if (presentationDefinition()) {
+                @if (apiPresentationResponse()?.qr_code_url) {
+                  <img [src]="apiPresentationResponse()?.qr_code_url" alt="QR Code" class="qr-image" />
+                } @else if (presentationDefinition()) {
                   <qrcode 
                     [qrdata]="presentationDefinition()?.qrCodeData || ''"
                     [width]="280"
@@ -280,7 +317,7 @@ import { QRCodeComponent } from 'angularx-qrcode';
               </div>
               <div class="qr-label">
                 <span class="label-title">Verification Request</span>
-                <span class="label-id">ID: {{ presentationDefinition()?.id }}</span>
+                <span class="label-id">ID: {{ apiPresentationResponse()?.presentation_id || presentationDefinition()?.id }}</span>
               </div>
             </div>
             
@@ -299,13 +336,20 @@ import { QRCodeComponent } from 'angularx-qrcode';
               
               <div class="summary-item">
                 <span class="summary-label">Created</span>
-                <span class="summary-value">{{ presentationDefinition()?.createdAt | date:'medium' }}</span>
+                <span class="summary-value">{{ apiPresentationResponse()?.created_at || (presentationDefinition()?.createdAt | date:'medium') }}</span>
               </div>
               
               <div class="summary-item">
                 <span class="summary-label">Expires</span>
-                <span class="summary-value">{{ presentationDefinition()?.expiresAt | date:'medium' }}</span>
+                <span class="summary-value">{{ apiPresentationResponse()?.expires_at || (presentationDefinition()?.expiresAt | date:'medium') }}</span>
               </div>
+
+              @if (apiPresentationResponse()?.status) {
+                <div class="summary-item">
+                  <span class="summary-label">Status</span>
+                  <span class="summary-value status-badge">{{ apiPresentationResponse()?.status }}</span>
+                </div>
+              }
               
               <div class="requested-fields">
                 <h4>Requested Fields</h4>
@@ -319,6 +363,7 @@ import { QRCodeComponent } from 'angularx-qrcode';
               </div>
             </div>
           </div>
+          }
           
           <div class="step-actions">
             <button class="secondary-btn" (click)="resetWorkflow()">
@@ -450,6 +495,58 @@ import { QRCodeComponent } from 'angularx-qrcode';
       color: rgba(255, 255, 255, 0.5);
       font-size: 15px;
       margin-bottom: 32px;
+    }
+
+    /* Loading State */
+    .loading-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(0, 212, 170, 0.2);
+      border-top-color: #00d4aa;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-state p {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+    }
+
+    /* Error Banner */
+    .error-banner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: rgba(255, 107, 53, 0.1);
+      border: 1px solid rgba(255, 107, 53, 0.3);
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+
+    .error-banner svg {
+      width: 20px;
+      height: 20px;
+      color: #ff6b35;
+      flex-shrink: 0;
+    }
+
+    .error-banner span {
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 14px;
     }
     
     /* Account Types Grid */
@@ -604,6 +701,22 @@ import { QRCodeComponent } from 'angularx-qrcode';
       line-height: 1.5;
     }
     
+    .document-did {
+      display: block;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      color: rgba(0, 212, 170, 0.7);
+      background: rgba(0, 212, 170, 0.08);
+      padding: 6px 10px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 100%;
+      cursor: help;
+    }
+
     .field-count {
       font-size: 12px;
       color: rgba(255, 255, 255, 0.5);
@@ -741,6 +854,22 @@ import { QRCodeComponent } from 'angularx-qrcode';
       padding: 20px;
       border-radius: 16px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    }
+
+    .qr-image {
+      width: 280px;
+      height: 280px;
+      display: block;
+    }
+
+    .status-badge {
+      background: rgba(0, 212, 170, 0.15);
+      color: #00d4aa;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
     }
     
     .qr-label {
@@ -902,10 +1031,20 @@ export class AccountOpeningComponent {
   readonly presentationDefinition = signal<any>(null);
   
   readonly accountTypes: AccountTypeConfig[] = this.bankService.getAccountTypes();
-  readonly documentSubjects: DocumentSubject[] = this.bankService.getDocumentSubjects();
+  readonly documentSubjects = this.bankService.documentSubjects;
+  readonly subjectsLoading = this.bankService.subjectsLoading;
+  readonly subjectsError = this.bankService.subjectsError;
+  readonly presentationLoading = this.bankService.presentationLoading;
+  readonly presentationError = this.bankService.presentationError;
+  readonly apiPresentationResponse = this.bankService.apiPresentationResponse;
   
   readonly selectedAccountType = this.bankService.selectedAccountType;
   readonly selectedDocument = this.bankService.selectedDocument;
+
+  constructor() {
+    // Fetch document subjects from API on component init
+    this.bankService.fetchDocumentSubjects();
+  }
   
   readonly enabledFieldsCount = computed(() => {
     const doc = this.selectedDocument();
@@ -926,10 +1065,21 @@ export class AccountOpeningComponent {
   }
   
   nextStep(): void {
-    if (this.currentStep() === 3) {
+    const step = this.currentStep();
+    
+    // When moving from step 2 to step 3, fetch fields for selected subject
+    if (step === 2) {
+      const selectedDoc = this.selectedDocument();
+      if (selectedDoc?.id) {
+        this.bankService.fetchSubjectFields(selectedDoc.id);
+      }
+    }
+    
+    if (step === 3) {
       this.generatePresentationDefinition();
     }
-    this.currentStep.update((step: number) => Math.min(step + 1, 4));
+    
+    this.currentStep.update((s: number) => Math.min(s + 1, 4));
   }
   
   prevStep(): void {
@@ -942,6 +1092,10 @@ export class AccountOpeningComponent {
     
     if (!accountType || !document) return;
     
+    // Call API to create presentation
+    this.bankService.createPresentationViaApi();
+    
+    // Also create local definition for display
     const definition = this.bankService.createPresentationDefinition(
       `${this.getAccountTypeName(accountType)} - ${document.name} Verification`,
       `Verification request for opening a ${this.getAccountTypeName(accountType).toLowerCase()}`
@@ -952,6 +1106,7 @@ export class AccountOpeningComponent {
   
   resetWorkflow(): void {
     this.bankService.resetWorkflow();
+    this.bankService.clearPresentationResponse();
     this.currentStep.set(1);
     this.presentationDefinition.set(null);
     this.router.navigate(['/dashboard']);
@@ -959,6 +1114,7 @@ export class AccountOpeningComponent {
   
   createAnother(): void {
     this.bankService.resetWorkflow();
+    this.bankService.clearPresentationResponse();
     this.currentStep.set(1);
     this.presentationDefinition.set(null);
   }

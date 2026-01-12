@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { AccountType, AccountTypeConfig, ACCOUNT_TYPES } from '../models/account.model';
 import { DocumentType, DocumentSubject, DocumentField, DOCUMENT_SUBJECTS } from '../models/document.model';
 import {
@@ -9,6 +9,8 @@ import {
   FieldConstraint,
   QRCodePayload
 } from '../models/presentation.model';
+import { ApiService, SubjectApiResponse, SubjectFieldResponse, PresentationApiResponse } from './api.service';
+import { catchError, of } from 'rxjs';
 
 /**
  * Service for managing bank operations, document verification,
@@ -18,17 +20,31 @@ import {
   providedIn: 'root'
 })
 export class BankService {
+  private readonly apiService = inject(ApiService);
+
   // Signals for reactive state management
   private _selectedAccountType = signal<AccountType | null>(null);
   private _selectedDocument = signal<DocumentSubject | null>(null);
   private _presentationDefinitions = signal<PresentationDefinition[]>([]);
   private _submissions = signal<PresentationSubmission[]>([]);
+  private _documentSubjects = signal<DocumentSubject[]>([]);
+  private _subjectsLoading = signal<boolean>(false);
+  private _subjectsError = signal<string | null>(null);
+  private _presentationLoading = signal<boolean>(false);
+  private _presentationError = signal<string | null>(null);
+  private _apiPresentationResponse = signal<PresentationApiResponse | null>(null);
 
   // Computed values
   readonly selectedAccountType = this._selectedAccountType.asReadonly();
   readonly selectedDocument = this._selectedDocument.asReadonly();
   readonly presentationDefinitions = this._presentationDefinitions.asReadonly();
   readonly submissions = this._submissions.asReadonly();
+  readonly documentSubjects = this._documentSubjects.asReadonly();
+  readonly subjectsLoading = this._subjectsLoading.asReadonly();
+  readonly subjectsError = this._subjectsError.asReadonly();
+  readonly presentationLoading = this._presentationLoading.asReadonly();
+  readonly presentationError = this._presentationError.asReadonly();
+  readonly apiPresentationResponse = this._apiPresentationResponse.asReadonly();
 
   // Computed: Get pending submissions count
   readonly pendingSubmissionsCount = computed(() => 
@@ -47,13 +63,125 @@ export class BankService {
   }
 
   /**
-   * Returns all document subjects with fresh field states
+   * Fetches document subjects list from API (without fields)
+   * Falls back to static data on error
    */
-  getDocumentSubjects(): DocumentSubject[] {
+  fetchDocumentSubjects(): void {
+    this._subjectsLoading.set(true);
+    this._subjectsError.set(null);
+
+    this.apiService.getSubjects(true).pipe(
+      catchError((error: Error) => {
+        console.error('Failed to fetch subjects from API, falling back to static data:', error);
+        this._subjectsError.set('Failed to load subjects from server. Using cached data.');
+        return of(null);
+      })
+    ).subscribe((response: SubjectApiResponse[] | null) => {
+      this._subjectsLoading.set(false);
+      
+      if (response) {
+        const subjects = this.mapApiSubjectsToModel(response);
+        this._documentSubjects.set(subjects);
+      } else {
+        // Fallback to static data
+        this._documentSubjects.set(this.getStaticDocumentSubjects());
+      }
+    });
+  }
+
+  /**
+   * Fetches fields for a specific subject by ID
+   * Called when user proceeds to fields selection step
+   */
+  fetchSubjectFields(subjectId: number): void {
+    this._subjectsLoading.set(true);
+    
+    this.apiService.getSubjectById(subjectId).pipe(
+      catchError((error: Error) => {
+        console.error('Failed to fetch subject fields:', error);
+        return of(null);
+      })
+    ).subscribe((response: SubjectApiResponse | null) => {
+      this._subjectsLoading.set(false);
+      
+      if (response && response.fields) {
+        // Update the selected document with fetched fields
+        const currentDoc = this._selectedDocument();
+        if (currentDoc) {
+          const updatedDoc: DocumentSubject = {
+            ...currentDoc,
+            fields: response.fields.map((field: SubjectFieldResponse) => ({
+              id: field.field_key,
+              apiId: field.id,
+              name: field.field_name,
+              description: field.field_description,
+              required: field.is_required,
+              enabled: false
+            }))
+          };
+          this._selectedDocument.set(updatedDoc);
+        }
+      }
+    });
+  }
+
+  /**
+   * Maps API response to DocumentSubject model
+   */
+  private mapApiSubjectsToModel(apiSubjects: SubjectApiResponse[]): DocumentSubject[] {
+    return apiSubjects.map((subject: SubjectApiResponse) => ({
+      id: subject.id,
+      type: this.mapSubjectNameToType(subject.name),
+      name: subject.name,
+      description: subject.description,
+      icon: subject.icon_name,
+      color: subject.icon_color,
+      did: subject.did,
+      fields: (subject.fields || []).map((field: SubjectFieldResponse) => ({
+        id: field.field_key,
+        name: field.field_name,
+        description: field.field_description,
+        required: field.is_required,
+        enabled: false
+      }))
+    }));
+  }
+
+  /**
+   * Maps subject name to DocumentType enum
+   */
+  private mapSubjectNameToType(name: string): DocumentType {
+    const typeMap: Record<string, DocumentType> = {
+      'Aadhar Card': DocumentType.AADHAR,
+      'PAN Card': DocumentType.PAN,
+      'Voter ID Card': DocumentType.VOTER_ID
+    };
+    return typeMap[name] || DocumentType.AADHAR;
+  }
+
+  /**
+   * Returns static document subjects as fallback
+   */
+  private getStaticDocumentSubjects(): DocumentSubject[] {
     return DOCUMENT_SUBJECTS.map((doc: DocumentSubject) => ({
       ...doc,
       fields: doc.fields.map((field: DocumentField) => ({ ...field, enabled: false }))
     }));
+  }
+
+  /**
+   * Returns all document subjects with fresh field states
+   * Uses cached data from signal if available
+   */
+  getDocumentSubjects(): DocumentSubject[] {
+    const cached = this._documentSubjects();
+    if (cached.length > 0) {
+      return cached.map((doc: DocumentSubject) => ({
+        ...doc,
+        fields: doc.fields.map((field: DocumentField) => ({ ...field, enabled: false }))
+      }));
+    }
+    return this.getStaticDocumentSubjects();
   }
 
   /**
@@ -164,6 +292,61 @@ export class BankService {
       domain: 'bank.example.com',
       presentationDefinition: definition
     };
+  }
+
+  /**
+   * Creates a presentation definition via API
+   * Returns an Observable that completes when the API call is done
+   */
+  createPresentationViaApi(): void {
+    const accountType = this._selectedAccountType();
+    const document = this._selectedDocument();
+
+    if (!accountType || !document || !document.id) {
+      this._presentationError.set('Account type and document must be selected');
+      return;
+    }
+
+    const enabledFields = this.getEnabledFields();
+    if (enabledFields.length === 0) {
+      this._presentationError.set('At least one field must be enabled');
+      return;
+    }
+
+    // Get field API IDs
+    const fieldIds = enabledFields
+      .filter((field: DocumentField) => field.apiId !== undefined)
+      .map((field: DocumentField) => field.apiId as number);
+
+    if (fieldIds.length === 0) {
+      this._presentationError.set('No valid field IDs found');
+      return;
+    }
+
+    this._presentationLoading.set(true);
+    this._presentationError.set(null);
+
+    this.apiService.createPresentation(document.id, accountType, fieldIds).pipe(
+      catchError((error: Error) => {
+        console.error('Failed to create presentation:', error);
+        this._presentationError.set('Failed to create presentation. Please try again.');
+        return of(null);
+      })
+    ).subscribe((response: PresentationApiResponse | null) => {
+      this._presentationLoading.set(false);
+      
+      if (response) {
+        this._apiPresentationResponse.set(response);
+      }
+    });
+  }
+
+  /**
+   * Clears the presentation response
+   */
+  clearPresentationResponse(): void {
+    this._apiPresentationResponse.set(null);
+    this._presentationError.set(null);
   }
 
   /**

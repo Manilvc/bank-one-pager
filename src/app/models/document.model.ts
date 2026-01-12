@@ -12,6 +12,7 @@ export enum DocumentType {
  */
 export interface DocumentField {
   id: string;
+  apiId?: number;
   name: string;
   description: string;
   required: boolean;
@@ -22,11 +23,13 @@ export interface DocumentField {
  * Interface for document subject configuration
  */
 export interface DocumentSubject {
+  id?: number;
   type: DocumentType;
   name: string;
   description: string;
   icon: string;
   color: string;
+  did?: string;
   fields: DocumentField[];
 }
 

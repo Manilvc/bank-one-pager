@@ -1,7 +1,8 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { BankService } from '../../services/bank.service';
+import { ApiService, DashboardStatistics, RecentActivityItem } from '../../services/api.service';
 import { SubmissionStatus } from '../../models/presentation.model';
 
 /**
@@ -25,6 +26,12 @@ import { SubmissionStatus } from '../../models/presentation.model';
       </header>
       
       <!-- Stats Cards -->
+      @if (statsLoading()) {
+        <div class="stats-loading">
+          <div class="spinner"></div>
+          <p>Loading statistics...</p>
+        </div>
+      } @else {
       <div class="stats-grid">
         <div class="stat-card pending">
           <div class="stat-icon">
@@ -33,11 +40,11 @@ import { SubmissionStatus } from '../../models/presentation.model';
             </svg>
           </div>
           <div class="stat-content">
-            <span class="stat-value">{{ pendingCount }}</span>
+            <span class="stat-value">{{ statistics()?.pending_reviews ?? 0 }}</span>
             <span class="stat-label">Pending Reviews</span>
           </div>
           <div class="stat-trend up">
-            <span>+2 today</span>
+            <span>+{{ statistics()?.pending_today ?? 0 }} today</span>
           </div>
         </div>
         
@@ -48,11 +55,11 @@ import { SubmissionStatus } from '../../models/presentation.model';
             </svg>
           </div>
           <div class="stat-content">
-            <span class="stat-value">{{ approvedCount }}</span>
+            <span class="stat-value">{{ statistics()?.approved ?? 0 }}</span>
             <span class="stat-label">Approved</span>
           </div>
           <div class="stat-trend up">
-            <span>+5 this week</span>
+            <span>+{{ statistics()?.approved_this_week ?? 0 }} this week</span>
           </div>
         </div>
         
@@ -63,7 +70,7 @@ import { SubmissionStatus } from '../../models/presentation.model';
             </svg>
           </div>
           <div class="stat-content">
-            <span class="stat-value">{{ rejectedCount }}</span>
+            <span class="stat-value">{{ statistics()?.rejected ?? 0 }}</span>
             <span class="stat-label">Rejected</span>
           </div>
           <div class="stat-trend">
@@ -78,7 +85,7 @@ import { SubmissionStatus } from '../../models/presentation.model';
             </svg>
           </div>
           <div class="stat-content">
-            <span class="stat-value">{{ totalDefinitions }}</span>
+            <span class="stat-value">{{ statistics()?.qr_definitions ?? 0 }}</span>
             <span class="stat-label">QR Definitions</span>
           </div>
           <div class="stat-trend">
@@ -86,6 +93,7 @@ import { SubmissionStatus } from '../../models/presentation.model';
           </div>
         </div>
       </div>
+      }
       
       <!-- Quick Actions -->
       <section class="quick-actions">
@@ -108,7 +116,7 @@ import { SubmissionStatus } from '../../models/presentation.model';
               </svg>
             </div>
             <span class="action-title">Review Submissions</span>
-            <span class="action-desc">{{ pendingCount }} pending verifications</span>
+            <span class="action-desc">{{ statistics()?.pending_reviews ?? 0 }} pending verifications</span>
           </button>
           
           <button class="action-card" (click)="navigateToPresentations()">
@@ -126,11 +134,24 @@ import { SubmissionStatus } from '../../models/presentation.model';
       <!-- Recent Activity -->
       <section class="recent-activity">
         <h2>Recent Activity</h2>
+        @if (activityLoading()) {
+          <div class="activity-loading">
+            <div class="spinner"></div>
+            <p>Loading activity...</p>
+          </div>
+        } @else if (recentActivity().length === 0) {
+          <div class="activity-empty">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+            <p>No recent activity</p>
+          </div>
+        } @else {
         <div class="activity-list">
-          @for (submission of recentSubmissions; track submission.id) {
+          @for (activity of recentActivity(); track activity.id) {
             <div class="activity-item">
-              <div class="activity-icon" [class]="submission.status">
-                @switch (submission.status) {
+              <div class="activity-icon" [class]="activity.status">
+                @switch (activity.status) {
                   @case ('pending') {
                     <svg viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
@@ -146,21 +167,27 @@ import { SubmissionStatus } from '../../models/presentation.model';
                       <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                     </svg>
                   }
+                  @default {
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                    </svg>
+                  }
                 }
               </div>
               <div class="activity-content">
-                <span class="activity-title">{{ submission.holderName }}</span>
-                <span class="activity-desc">{{ getDocumentName(submission.documentType) }} verification - {{ getAccountName(submission.accountType) }}</span>
+                <span class="activity-title">{{ activity.holder_name }}</span>
+                <span class="activity-desc">{{ getDocumentName(activity.document_type) }} verification - {{ getAccountName(activity.account_type) }}</span>
               </div>
               <div class="activity-time">
-                {{ formatTime(submission.submittedAt) }}
+                {{ formatTime(activity.submitted_at) }}
               </div>
-              <span class="activity-status" [class]="submission.status">
-                {{ submission.status | titlecase }}
+              <span class="activity-status" [class]="activity.status">
+                {{ activity.status | titlecase }}
               </span>
             </div>
           }
         </div>
+        }
       </section>
     </div>
   `,
@@ -512,32 +539,110 @@ import { SubmissionStatus } from '../../models/presentation.model';
         gap: 20px;
       }
     }
+
+    /* Loading States */
+    .stats-loading,
+    .activity-loading,
+    .activity-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      gap: 16px;
+      background: linear-gradient(145deg, #16161f 0%, #12121a 100%);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 16px;
+      margin-bottom: 40px;
+    }
+
+    .activity-loading,
+    .activity-empty {
+      margin-bottom: 0;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(0, 212, 170, 0.2);
+      border-top-color: #00d4aa;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .stats-loading p,
+    .activity-loading p,
+    .activity-empty p {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+    }
+
+    .activity-empty svg {
+      width: 48px;
+      height: 48px;
+      color: rgba(255, 255, 255, 0.3);
+    }
   `]
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit {
   private readonly bankService = inject(BankService);
+  private readonly apiService = inject(ApiService);
   private readonly router = inject(Router);
   
-  get pendingCount(): number {
-    return this.bankService.getSubmissionsByStatus(SubmissionStatus.PENDING).length;
+  // Signals for API data
+  readonly statistics = signal<DashboardStatistics | null>(null);
+  readonly recentActivity = signal<RecentActivityItem[]>([]);
+  readonly statsLoading = signal<boolean>(false);
+  readonly activityLoading = signal<boolean>(false);
+  
+  ngOnInit(): void {
+    this.loadDashboardData();
   }
   
-  get approvedCount(): number {
-    return this.bankService.getSubmissionsByStatus(SubmissionStatus.APPROVED).length;
+  /**
+   * Loads all dashboard data from API
+   */
+  private loadDashboardData(): void {
+    this.loadStatistics();
+    this.loadRecentActivity();
   }
   
-  get rejectedCount(): number {
-    return this.bankService.getSubmissionsByStatus(SubmissionStatus.REJECTED).length;
+  /**
+   * Fetches dashboard statistics from API
+   */
+  private loadStatistics(): void {
+    this.statsLoading.set(true);
+    this.apiService.getDashboardStatistics().subscribe({
+      next: (data: DashboardStatistics) => {
+        this.statistics.set(data);
+        this.statsLoading.set(false);
+      },
+      error: (error: Error) => {
+        console.error('Failed to load statistics:', error);
+        this.statsLoading.set(false);
+      }
+    });
   }
   
-  get totalDefinitions(): number {
-    return this.bankService.getPresentationDefinitions().length;
-  }
-  
-  get recentSubmissions() {
-    return this.bankService.getSubmissions()
-      .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
-      .slice(0, 5);
+  /**
+   * Fetches recent activity from API
+   */
+  private loadRecentActivity(): void {
+    this.activityLoading.set(true);
+    this.apiService.getRecentActivity().subscribe({
+      next: (data: RecentActivityItem[]) => {
+        this.recentActivity.set(data);
+        this.activityLoading.set(false);
+      },
+      error: (error: Error) => {
+        console.error('Failed to load recent activity:', error);
+        this.activityLoading.set(false);
+      }
+    });
   }
   
   navigateToAccountOpening(): void {
@@ -573,9 +678,10 @@ export class DashboardComponent {
     return names[type] || type;
   }
   
-  formatTime(date: Date): string {
+  formatTime(dateStr: string | Date): string {
     const now = new Date();
-    const diff = now.getTime() - new Date(date).getTime();
+    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+    const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
