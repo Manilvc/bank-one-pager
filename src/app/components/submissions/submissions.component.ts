@@ -1,7 +1,8 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BankService } from '../../services/bank.service';
+import { ApiService, SubmissionApiResponse, SubmissionListParams } from '../../services/api.service';
 import { PresentationSubmission, SubmissionStatus } from '../../models/presentation.model';
 
 /**
@@ -21,15 +22,15 @@ import { PresentationSubmission, SubmissionStatus } from '../../models/presentat
         </div>
         <div class="header-stats">
           <div class="stat-pill pending">
-            <span class="stat-count">{{ pendingCount() }}</span>
+            <span class="stat-count">{{ pendingCount }}</span>
             <span class="stat-label">Pending</span>
           </div>
           <div class="stat-pill approved">
-            <span class="stat-count">{{ approvedCount() }}</span>
+            <span class="stat-count">{{ approvedCount }}</span>
             <span class="stat-label">Approved</span>
           </div>
           <div class="stat-pill rejected">
-            <span class="stat-count">{{ rejectedCount() }}</span>
+            <span class="stat-count">{{ rejectedCount }}</span>
             <span class="stat-label">Rejected</span>
           </div>
         </div>
@@ -49,8 +50,8 @@ import { PresentationSubmission, SubmissionStatus } from '../../models/presentat
             [class.active]="activeFilter() === 'pending'"
             (click)="setFilter('pending')">
             Pending Review
-            @if (pendingCount() > 0) {
-              <span class="tab-badge">{{ pendingCount() }}</span>
+            @if (pendingCount > 0) {
+              <span class="tab-badge">{{ pendingCount }}</span>
             }
           </button>
           <button 
@@ -81,52 +82,75 @@ import { PresentationSubmission, SubmissionStatus } from '../../models/presentat
       
       <!-- Submissions List -->
       <div class="submissions-container">
+        @if (loading()) {
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading submissions...</p>
+          </div>
+        } @else {
         <div class="submissions-list">
-          @for (submission of filteredSubmissions(); track submission.id) {
+          @for (submission of submissions(); track submission.request_id) {
             <div 
               class="submission-card"
-              [class.selected]="selectedSubmission()?.id === submission.id"
-              [class.pending]="submission.status === 'pending'"
-              [class.approved]="submission.status === 'approved'"
-              [class.rejected]="submission.status === 'rejected'"
+              [class.selected]="selectedSubmission()?.request_id === submission.request_id"
+              [class.pending]="submission.status.toLowerCase() === 'pending'"
+              [class.approved]="submission.status.toLowerCase() === 'approved'"
+              [class.rejected]="submission.status.toLowerCase() === 'rejected'"
               (click)="selectSubmission(submission)">
               <div class="submission-status-bar"></div>
               
               <div class="submission-header">
                 <div class="holder-avatar">
-                  {{ getInitials(submission.holderName) }}
+                  {{ getInitials(submission.document_name) }}
                 </div>
                 <div class="holder-info">
-                  <span class="holder-name">{{ submission.holderName }}</span>
-                  <span class="holder-did">{{ truncateDid(submission.holderDid) }}</span>
+                  <span class="holder-name">{{ submission.document_name }}</span>
+                  <span class="holder-did">{{ truncateDid(submission.holder_did || 'N/A') }}</span>
                 </div>
-                <span class="status-badge" [class]="submission.status">
+                <span class="status-badge" [class]="submission.status.toLowerCase()">
                   {{ submission.status | titlecase }}
                 </span>
+                @if (submission.status.toLowerCase() === 'pending') {
+                  <div class="quick-actions">
+                    <button 
+                      class="action-icon-btn reject"
+                      title="Reject"
+                      [disabled]="actionLoading()"
+                      (click)="rejectSubmissionById(submission.request_id, $event)">
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                      </svg>
+                    </button>
+                    <button 
+                      class="action-icon-btn approve"
+                      title="Approve"
+                      [disabled]="actionLoading()"
+                      (click)="approveSubmissionById(submission.request_id, $event)">
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                      </svg>
+                    </button>
+                  </div>
+                }
               </div>
               
               <div class="submission-details">
                 <div class="detail-row">
-                  <span class="detail-label">Document:</span>
-                  <span class="detail-value">{{ getDocumentName(submission.documentType) }}</span>
+                  <span class="detail-label">Request ID:</span>
+                  <span class="detail-value">{{ truncateId(submission.request_id) }}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Account Type:</span>
-                  <span class="detail-value">{{ getAccountName(submission.accountType) }}</span>
+                  <span class="detail-value">{{ getAccountName(submission.account_type) }}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Submitted:</span>
-                  <span class="detail-value">{{ formatDate(submission.submittedAt) }}</span>
+                  <span class="detail-value">{{ formatDate(submission.created_at) }}</span>
                 </div>
               </div>
               
               <div class="submission-fields-preview">
-                @for (field of submission.submittedFields.slice(0, 2); track field.fieldId) {
-                  <span class="field-chip">{{ field.fieldName }}</span>
-                }
-                @if (submission.submittedFields.length > 2) {
-                  <span class="field-chip more">+{{ submission.submittedFields.length - 2 }} more</span>
-                }
+                <span class="field-chip">{{ submission.definition_id }}</span>
               </div>
             </div>
           } @empty {
@@ -141,6 +165,7 @@ import { PresentationSubmission, SubmissionStatus } from '../../models/presentat
             </div>
           }
         </div>
+        }
         
         <!-- Detail Panel -->
         @if (selectedSubmission()) {
@@ -155,33 +180,43 @@ import { PresentationSubmission, SubmissionStatus } from '../../models/presentat
             </div>
             
             <div class="panel-content">
-              <!-- Holder Information -->
+              <!-- Request Information -->
               <section class="panel-section">
-                <h4>Holder Information</h4>
+                <h4>Request Information</h4>
                 <div class="info-grid">
+                  <div class="info-item full-width">
+                    <span class="info-label">Request ID</span>
+                    <span class="info-value mono">{{ selectedSubmission()?.request_id }}</span>
+                  </div>
                   <div class="info-item">
-                    <span class="info-label">Name</span>
-                    <span class="info-value">{{ selectedSubmission()?.holderName }}</span>
+                    <span class="info-label">Document</span>
+                    <span class="info-value">{{ selectedSubmission()?.document_name }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">Account Type</span>
+                    <span class="info-value">{{ getAccountName(selectedSubmission()?.account_type || '') }}</span>
                   </div>
                   <div class="info-item full-width">
-                    <span class="info-label">DID</span>
-                    <span class="info-value mono">{{ selectedSubmission()?.holderDid }}</span>
+                    <span class="info-label">Holder DID</span>
+                    <span class="info-value mono">{{ selectedSubmission()?.holder_did || 'N/A' }}</span>
                   </div>
                 </div>
               </section>
               
-              <!-- Submitted Fields -->
-              <section class="panel-section">
-                <h4>Submitted Data</h4>
-                <div class="submitted-fields">
-                  @for (field of selectedSubmission()?.submittedFields; track field.fieldId) {
-                    <div class="field-item">
-                      <span class="field-label">{{ field.fieldName }}</span>
-                      <span class="field-value">{{ field.value }}</span>
-                    </div>
-                  }
-                </div>
-              </section>
+              <!-- Submitted Data -->
+              @if (selectedSubmission()?.submission_json) {
+                <section class="panel-section">
+                  <h4>Submitted Data</h4>
+                  <div class="submitted-fields">
+                    @for (entry of getSubmissionDataEntries(selectedSubmission()?.submission_json); track entry.key) {
+                      <div class="field-item">
+                        <span class="field-label">{{ entry.key }}</span>
+                        <span class="field-value">{{ entry.value }}</span>
+                      </div>
+                    }
+                  </div>
+                </section>
+              }
               
               <!-- Submission Info -->
               <section class="panel-section">
@@ -189,54 +224,47 @@ import { PresentationSubmission, SubmissionStatus } from '../../models/presentat
                 <div class="info-grid">
                   <div class="info-item">
                     <span class="info-label">Status</span>
-                    <span class="status-badge large" [class]="selectedSubmission()?.status">
+                    <span class="status-badge large" [class]="selectedSubmission()?.status?.toLowerCase()">
                       {{ selectedSubmission()?.status | titlecase }}
                     </span>
                   </div>
                   <div class="info-item">
                     <span class="info-label">Submitted At</span>
-                    <span class="info-value">{{ selectedSubmission()?.submittedAt | date:'medium' }}</span>
+                    <span class="info-value">{{ selectedSubmission()?.created_at | date:'medium' }}</span>
                   </div>
-                  @if (selectedSubmission()?.reviewedAt) {
-                    <div class="info-item">
-                      <span class="info-label">Reviewed At</span>
-                      <span class="info-value">{{ selectedSubmission()?.reviewedAt | date:'medium' }}</span>
-                    </div>
-                    <div class="info-item">
-                      <span class="info-label">Reviewed By</span>
-                      <span class="info-value">{{ selectedSubmission()?.reviewedBy }}</span>
+                  @if (selectedSubmission()?.completed_at) {
+                    <div class="info-item full-width">
+                      <span class="info-label">Completed At</span>
+                      <span class="info-value">{{ selectedSubmission()?.completed_at | date:'medium' }}</span>
                     </div>
                   }
                 </div>
-                @if (selectedSubmission()?.comments) {
-                  <div class="review-comments">
-                    <span class="info-label">Review Comments</span>
-                    <p class="comments-text">{{ selectedSubmission()?.comments }}</p>
-                  </div>
-                }
               </section>
               
               <!-- Action Buttons -->
-              @if (selectedSubmission()?.status === 'pending') {
+              @if (selectedSubmission()?.status?.toLowerCase() === 'pending') {
                 <section class="panel-section actions-section">
                   <h4>Review Actions</h4>
                   <div class="review-form">
-                    <textarea 
-                      [(ngModel)]="reviewComments"
-                      placeholder="Add comments for this review (optional)..."
-                      rows="3">
-                    </textarea>
                     <div class="action-buttons">
-                      <button class="reject-btn" (click)="rejectSubmission()">
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                        </svg>
+                      <button class="reject-btn" [disabled]="actionLoading()" (click)="rejectSubmission()">
+                        @if (actionLoading()) {
+                          <div class="btn-spinner"></div>
+                        } @else {
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                          </svg>
+                        }
                         Reject
                       </button>
-                      <button class="approve-btn" (click)="approveSubmission()">
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                        </svg>
+                      <button class="approve-btn" [disabled]="actionLoading()" (click)="approveSubmission()">
+                        @if (actionLoading()) {
+                          <div class="btn-spinner"></div>
+                        } @else {
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                          </svg>
+                        }
                         Approve
                       </button>
                     </div>
@@ -568,6 +596,62 @@ import { PresentationSubmission, SubmissionStatus } from '../../models/presentat
       background: rgba(0, 212, 170, 0.15);
       color: #00d4aa;
     }
+
+    /* Quick Action Icon Buttons */
+    .quick-actions {
+      display: flex;
+      gap: 8px;
+      margin-left: 12px;
+    }
+
+    .action-icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .action-icon-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .action-icon-btn.approve {
+      background: rgba(0, 212, 170, 0.15);
+      color: #00d4aa;
+      border: 1px solid rgba(0, 212, 170, 0.3);
+    }
+
+    .action-icon-btn.approve:hover:not(:disabled) {
+      background: #00d4aa;
+      color: #0a0a0f;
+      transform: scale(1.1);
+      box-shadow: 0 4px 16px rgba(0, 212, 170, 0.4);
+    }
+
+    .action-icon-btn.reject {
+      background: rgba(255, 71, 87, 0.15);
+      color: #ff4757;
+      border: 1px solid rgba(255, 71, 87, 0.3);
+    }
+
+    .action-icon-btn.reject:hover:not(:disabled) {
+      background: #ff4757;
+      color: #fff;
+      transform: scale(1.1);
+      box-shadow: 0 4px 16px rgba(255, 71, 87, 0.4);
+    }
+
+    .action-icon-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
     
     /* Empty State */
     .empty-state {
@@ -829,6 +913,52 @@ import { PresentationSubmission, SubmissionStatus } from '../../models/presentat
       width: 18px;
       height: 18px;
     }
+
+    .approve-btn:disabled, .reject-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    /* Loading State */
+    .loading-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 40px;
+      background: linear-gradient(145deg, #16161f 0%, #12121a 100%);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(0, 212, 170, 0.2);
+      border-top-color: #00d4aa;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-state p {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+    }
     
     @media (max-width: 1200px) {
       .submissions-container {
@@ -871,108 +1001,163 @@ import { PresentationSubmission, SubmissionStatus } from '../../models/presentat
     }
   `]
 })
-export class SubmissionsComponent {
+export class SubmissionsComponent implements OnInit {
   private readonly bankService = inject(BankService);
+  private readonly apiService = inject(ApiService);
   
   readonly activeFilter = signal<'all' | 'pending' | 'approved' | 'rejected'>('all');
-  readonly selectedSubmission = signal<PresentationSubmission | null>(null);
+  readonly selectedSubmission = signal<SubmissionApiResponse | null>(null);
+  readonly submissions = signal<SubmissionApiResponse[]>([]);
+  readonly loading = signal<boolean>(false);
+  readonly actionLoading = signal<boolean>(false);
+  readonly totalCount = signal<number>(0);
+  
   searchQuery: string = '';
-  reviewComments: string = '';
   
-  readonly pendingCount = computed(() => 
-    this.bankService.getSubmissionsByStatus(SubmissionStatus.PENDING).length
-  );
-  
-  readonly approvedCount = computed(() => 
-    this.bankService.getSubmissionsByStatus(SubmissionStatus.APPROVED).length
-  );
-  
-  readonly rejectedCount = computed(() => 
-    this.bankService.getSubmissionsByStatus(SubmissionStatus.REJECTED).length
-  );
-  
-  readonly filteredSubmissions = computed(() => {
-    let submissions = this.bankService.getSubmissions();
+  // Counts for each status
+  pendingCount: number = 0;
+  approvedCount: number = 0;
+  rejectedCount: number = 0;
+
+  ngOnInit(): void {
+    this.loadSubmissions();
+  }
+
+  /**
+   * Loads submissions from API with current filters
+   */
+  loadSubmissions(): void {
+    this.loading.set(true);
     
-    // Apply status filter
+    const params: SubmissionListParams = {
+      limit: 100,
+      offset: 0
+    };
+    
     const filter = this.activeFilter();
     if (filter !== 'all') {
-      const statusMap: Record<string, SubmissionStatus> = {
-        'pending': SubmissionStatus.PENDING,
-        'approved': SubmissionStatus.APPROVED,
-        'rejected': SubmissionStatus.REJECTED
-      };
-      submissions = submissions.filter((s: PresentationSubmission) => s.status === statusMap[filter]);
+      params.status = filter;
     }
     
-    // Apply search filter
     if (this.searchQuery.trim()) {
-      const query = this.searchQuery.toLowerCase();
-      submissions = submissions.filter((s: PresentationSubmission) => 
-        s.holderName.toLowerCase().includes(query) ||
-        this.getDocumentName(s.documentType).toLowerCase().includes(query) ||
-        this.getAccountName(s.accountType).toLowerCase().includes(query)
-      );
+      params.search = this.searchQuery.trim();
     }
+
+    this.apiService.getSubmissions(params).subscribe({
+      next: (response: { data: SubmissionApiResponse[]; total: number }) => {
+        this.submissions.set(response.data);
+        this.totalCount.set(response.total);
+        this.loading.set(false);
+        this.updateCounts();
+      },
+      error: (error: Error) => {
+        console.error('Failed to load submissions:', error);
+        this.loading.set(false);
+      }
+    });
+  }
+
+  /**
+   * Updates status counts by making separate API calls
+   */
+  private updateCounts(): void {
+    // Get pending count
+    this.apiService.getSubmissions({ status: 'pending', limit: 1 }).subscribe({
+      next: (response: { data: SubmissionApiResponse[]; total: number }) => {
+        this.pendingCount = response.total;
+      }
+    });
     
-    // Sort by submission date (newest first)
-    return submissions.sort((a: PresentationSubmission, b: PresentationSubmission) => 
-      new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
-    );
-  });
+    // Get approved count
+    this.apiService.getSubmissions({ status: 'approved', limit: 1 }).subscribe({
+      next: (response: { data: SubmissionApiResponse[]; total: number }) => {
+        this.approvedCount = response.total;
+      }
+    });
+    
+    // Get rejected count
+    this.apiService.getSubmissions({ status: 'rejected', limit: 1 }).subscribe({
+      next: (response: { data: SubmissionApiResponse[]; total: number }) => {
+        this.rejectedCount = response.total;
+      }
+    });
+  }
   
   setFilter(filter: 'all' | 'pending' | 'approved' | 'rejected'): void {
     this.activeFilter.set(filter);
+    this.loadSubmissions();
   }
   
   onSearchChange(): void {
-    // Search is reactive through the computed
+    this.loadSubmissions();
   }
   
-  selectSubmission(submission: PresentationSubmission): void {
+  selectSubmission(submission: SubmissionApiResponse): void {
     this.selectedSubmission.set(submission);
-    this.reviewComments = '';
   }
   
   clearSelection(): void {
     this.selectedSubmission.set(null);
-    this.reviewComments = '';
   }
   
   approveSubmission(): void {
     const submission = this.selectedSubmission();
     if (!submission) return;
-    
-    this.bankService.approveSubmission(
-      submission.id,
-      'Manager Admin',
-      this.reviewComments || 'Approved - All verification requirements met.'
-    );
-    
-    // Refresh the selected submission
-    const updated = this.bankService.getSubmissions().find((s: PresentationSubmission) => s.id === submission.id);
-    if (updated) {
-      this.selectedSubmission.set(updated);
-    }
-    this.reviewComments = '';
+    this.approveSubmissionById(submission.request_id);
   }
   
   rejectSubmission(): void {
     const submission = this.selectedSubmission();
     if (!submission) return;
-    
-    this.bankService.rejectSubmission(
-      submission.id,
-      'Manager Admin',
-      this.reviewComments || 'Rejected - Please resubmit with complete documentation.'
-    );
-    
-    // Refresh the selected submission
-    const updated = this.bankService.getSubmissions().find((s: PresentationSubmission) => s.id === submission.id);
-    if (updated) {
-      this.selectedSubmission.set(updated);
+    this.rejectSubmissionById(submission.request_id);
+  }
+
+  /**
+   * Approves a submission by request ID
+   * @param requestId - The submission request ID
+   * @param event - Optional click event to stop propagation
+   */
+  approveSubmissionById(requestId: string, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
     }
-    this.reviewComments = '';
+    
+    this.actionLoading.set(true);
+    this.apiService.updateSubmissionStatus(requestId, 'approved').subscribe({
+      next: () => {
+        this.actionLoading.set(false);
+        this.loadSubmissions();
+        this.clearSelection();
+      },
+      error: (error: Error) => {
+        console.error('Failed to approve submission:', error);
+        this.actionLoading.set(false);
+      }
+    });
+  }
+
+  /**
+   * Rejects a submission by request ID
+   * @param requestId - The submission request ID
+   * @param event - Optional click event to stop propagation
+   */
+  rejectSubmissionById(requestId: string, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    
+    this.actionLoading.set(true);
+    this.apiService.updateSubmissionStatus(requestId, 'rejected').subscribe({
+      next: () => {
+        this.actionLoading.set(false);
+        this.loadSubmissions();
+        this.clearSelection();
+      },
+      error: (error: Error) => {
+        console.error('Failed to reject submission:', error);
+        this.actionLoading.set(false);
+      }
+    });
   }
   
   getInitials(name: string): string {
@@ -985,8 +1170,13 @@ export class SubmissionsComponent {
   }
   
   truncateDid(did: string): string {
-    if (did.length <= 30) return did;
+    if (!did || did.length <= 30) return did || 'N/A';
     return `${did.substring(0, 20)}...${did.substring(did.length - 8)}`;
+  }
+
+  truncateId(id: string): string {
+    if (!id || id.length <= 20) return id || 'N/A';
+    return `${id.substring(0, 8)}...${id.substring(id.length - 6)}`;
   }
   
   getDocumentName(type: string): string {
@@ -1009,9 +1199,20 @@ export class SubmissionsComponent {
     };
     return names[type] || type;
   }
+
+  /**
+   * Converts submission_json to array of key-value pairs for display
+   */
+  getSubmissionDataEntries(data: Record<string, unknown> | null | undefined): Array<{ key: string; value: string }> {
+    if (!data) return [];
+    return Object.entries(data).map(([key, value]) => ({
+      key: key,
+      value: String(value)
+    }));
+  }
   
-  formatDate(date: Date): string {
-    const d = new Date(date);
+  formatDate(dateStr: string | Date): string {
+    const d = new Date(dateStr);
     const now = new Date();
     const diff = now.getTime() - d.getTime();
     const minutes = Math.floor(diff / 60000);

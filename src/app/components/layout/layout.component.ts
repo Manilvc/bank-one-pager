@@ -1,7 +1,8 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { BankService } from '../../services/bank.service';
+import { ApiService } from '../../services/api.service';
 
 /**
  * Main layout component with navigation sidebar
@@ -247,8 +248,27 @@ import { BankService } from '../../services/bank.service';
     }
   `]
 })
-export class LayoutComponent {
+export class LayoutComponent implements OnInit {
   private readonly bankService = inject(BankService);
+  private readonly apiService = inject(ApiService);
   
-  readonly pendingCount = this.bankService.pendingSubmissionsCount;
+  readonly pendingCount = signal<number>(0);
+
+  ngOnInit(): void {
+    this.loadPendingCount();
+  }
+
+  /**
+   * Loads pending submissions count from API
+   */
+  private loadPendingCount(): void {
+    this.apiService.getSubmissions({ status: 'pending', limit: 1 }).subscribe({
+      next: (response: { data: unknown[]; total: number }) => {
+        this.pendingCount.set(response.total);
+      },
+      error: (error: Error) => {
+        console.error('Failed to load pending count:', error);
+      }
+    });
+  }
 }

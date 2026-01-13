@@ -129,6 +129,59 @@ export class ApiService {
       map((response: ApiListResponse<RecentActivityItem>) => response.data)
     );
   }
+
+  /**
+   * Fetches submissions list with optional filters
+   * @param params - Query parameters for filtering
+   */
+  getSubmissions(params: SubmissionListParams): Observable<{ data: SubmissionApiResponse[]; total: number }> {
+    let httpParams = new HttpParams();
+    
+    if (params.status) {
+      httpParams = httpParams.set('status', params.status);
+    }
+    if (params.account_type) {
+      httpParams = httpParams.set('account_type', params.account_type);
+    }
+    if (params.search) {
+      httpParams = httpParams.set('search', params.search);
+    }
+    if (params.limit) {
+      httpParams = httpParams.set('limit', params.limit.toString());
+    }
+    if (params.offset) {
+      httpParams = httpParams.set('offset', params.offset.toString());
+    }
+
+    return this.http.get<ApiListResponse<SubmissionApiResponse>>(`${this.baseUrl}/submissions`, { params: httpParams }).pipe(
+      map((response: ApiListResponse<SubmissionApiResponse>) => ({
+        data: response.data,
+        total: response.total
+      }))
+    );
+  }
+
+  /**
+   * Fetches a single submission by request ID
+   * @param requestId - The submission request ID
+   */
+  getSubmissionById(requestId: string): Observable<SubmissionApiResponse> {
+    return this.http.get<ApiSingleResponse<SubmissionApiResponse>>(`${this.baseUrl}/submissions/${requestId}`).pipe(
+      map((response: ApiSingleResponse<SubmissionApiResponse>) => response.data)
+    );
+  }
+
+  /**
+   * Updates submission status (approve or reject)
+   * @param requestId - The submission request ID
+   * @param status - New status (approved or rejected)
+   */
+  updateSubmissionStatus(requestId: string, status: 'approved' | 'rejected'): Observable<unknown> {
+    const body: UpdateSubmissionStatusRequest = { status: status };
+    return this.http.patch<ApiSingleResponse<unknown>>(`${this.baseUrl}/submissions/${requestId}/status`, body).pipe(
+      map((response: ApiSingleResponse<unknown>) => response.data)
+    );
+  }
 }
 
 /**
@@ -168,13 +221,48 @@ export interface DashboardStatistics {
 }
 
 /**
- * Recent activity item
+ * Recent activity item (matches API response)
  */
 export interface RecentActivityItem {
-  id: number;
-  holder_name: string;
-  document_type: string;
+  request_id: string;
+  definition_id: string;
+  document_name: string;
   account_type: string;
+  holder_did: string | null;
   status: string;
-  submitted_at: string;
+  created_at: string;
+  completed_at: string | null;
+}
+
+/**
+ * Submission response from API
+ */
+export interface SubmissionApiResponse {
+  request_id: string;
+  definition_id: string;
+  account_type: string;
+  document_name: string;
+  holder_did: string | null;
+  status: string;
+  created_at: string;
+  completed_at: string | null;
+  submission_json: Record<string, unknown> | null;
+}
+
+/**
+ * Submission list query parameters
+ */
+export interface SubmissionListParams {
+  status?: string;
+  account_type?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Update submission status request
+ */
+export interface UpdateSubmissionStatusRequest {
+  status: 'approved' | 'rejected';
 }

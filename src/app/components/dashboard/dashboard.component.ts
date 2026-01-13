@@ -148,10 +148,10 @@ import { SubmissionStatus } from '../../models/presentation.model';
           </div>
         } @else {
         <div class="activity-list">
-          @for (activity of recentActivity(); track activity.id) {
+          @for (activity of recentActivity(); track activity.request_id) {
             <div class="activity-item">
-              <div class="activity-icon" [class]="activity.status">
-                @switch (activity.status) {
+              <div class="activity-icon" [class]="activity.status.toLowerCase()">
+                @switch (activity.status.toLowerCase()) {
                   @case ('pending') {
                     <svg viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
@@ -175,13 +175,13 @@ import { SubmissionStatus } from '../../models/presentation.model';
                 }
               </div>
               <div class="activity-content">
-                <span class="activity-title">{{ activity.holder_name }}</span>
-                <span class="activity-desc">{{ getDocumentName(activity.document_type) }} verification - {{ getAccountName(activity.account_type) }}</span>
+                <span class="activity-title">{{ activity.document_name }}</span>
+                <span class="activity-desc">{{ activity.document_name }} verification - {{ getAccountName(activity.account_type) }}</span>
               </div>
               <div class="activity-time">
-                {{ formatTime(activity.submitted_at) }}
+                {{ formatTime(activity.created_at) }}
               </div>
-              <span class="activity-status" [class]="activity.status">
+              <span class="activity-status" [class]="activity.status.toLowerCase()">
                 {{ activity.status | titlecase }}
               </span>
             </div>
