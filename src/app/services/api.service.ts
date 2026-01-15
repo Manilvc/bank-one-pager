@@ -97,17 +97,10 @@ export class ApiService {
 
   /**
    * Creates a presentation definition via API
-   * @param subjectId - The subject ID
-   * @param accountType - The account type (savings, current, etc.)
-   * @param fieldIds - Array of field IDs to include
+   * @param payload - The presentation definition payload
    */
-  createPresentation(subjectId: number, accountType: string, fieldIds: number[]): Observable<PresentationApiResponse> {
-    const body: CreatePresentationRequest = {
-      subject_id: subjectId,
-      account_type: accountType,
-      field_ids: fieldIds
-    };
-    return this.http.post<ApiSingleResponse<PresentationApiResponse>>(`${this.baseUrl}/presentations`, body).pipe(
+  createPresentation(payload: CreatePresentationRequest): Observable<PresentationApiResponse> {
+    return this.http.post<ApiSingleResponse<PresentationApiResponse>>(`${this.baseUrl}/presentations`, payload).pipe(
       map((response: ApiSingleResponse<PresentationApiResponse>) => response.data)
     );
   }
@@ -188,9 +181,11 @@ export class ApiService {
  * Request body for creating a presentation
  */
 export interface CreatePresentationRequest {
-  subject_id: number;
   account_type: string;
+  expiry_hours: number;
   field_ids: number[];
+  purpose: string;
+  subject_id: number;
 }
 
 /**

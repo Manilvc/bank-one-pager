@@ -9,7 +9,7 @@ import {
   FieldConstraint,
   QRCodePayload
 } from '../models/presentation.model';
-import { ApiService, SubjectApiResponse, SubjectFieldResponse, PresentationApiResponse } from './api.service';
+import { ApiService, SubjectApiResponse, SubjectFieldResponse, PresentationApiResponse, CreatePresentationRequest } from './api.service';
 import { catchError, of } from 'rxjs';
 
 /**
@@ -60,6 +60,14 @@ export class BankService {
    */
   getAccountTypes(): AccountTypeConfig[] {
     return ACCOUNT_TYPES;
+  }
+
+  /**
+   * Gets the display name for an account type
+   */
+  getAccountTypeName(accountType: AccountType): string {
+    const config = ACCOUNT_TYPES.find((at: AccountTypeConfig) => at.type === accountType);
+    return config?.name || accountType;
   }
 
   /**
@@ -323,10 +331,19 @@ export class BankService {
       return;
     }
 
+    // Build the presentation definition payload
+    const payload: CreatePresentationRequest = {
+      account_type: this.getAccountTypeName(accountType),
+      expiry_hours: 24, // Default expiry of 24 hours
+      field_ids: fieldIds,
+      purpose: `KYC verification for ${this.getAccountTypeName(accountType)} account opening`,
+      subject_id: document.id
+    };
+
     this._presentationLoading.set(true);
     this._presentationError.set(null);
 
-    this.apiService.createPresentation(document.id, accountType, fieldIds).pipe(
+    this.apiService.createPresentation(payload).pipe(
       catchError((error: Error) => {
         console.error('Failed to create presentation:', error);
         this._presentationError.set('Failed to create presentation. Please try again.');
