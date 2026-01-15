@@ -1,7 +1,7 @@
 /**
- * Default environment configuration (used for development)
+ * Default environment configuration (used for local development)
  */
 export const environment = {
   production: false,
-  apiBaseUrl: 'https://d3d28a248491.ngrok-free.app/api/v1'
+  apiBaseUrl: 'http://localhost:8000/api/v1'
 };
