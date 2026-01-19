@@ -180,6 +180,12 @@ import { PresentationSubmission, SubmissionStatus } from '../../models/presentat
             </div>
             
             <div class="panel-content">
+              @if (detailLoading()) {
+                <div class="detail-loading">
+                  <div class="spinner"></div>
+                  <p>Loading details...</p>
+                </div>
+              } @else {
               <!-- Request Information -->
               <section class="panel-section">
                 <h4>Request Information</h4>
@@ -270,6 +276,7 @@ import { PresentationSubmission, SubmissionStatus } from '../../models/presentat
                     </div>
                   </div>
                 </section>
+              }
               }
             </div>
           </div>
@@ -959,6 +966,30 @@ import { PresentationSubmission, SubmissionStatus } from '../../models/presentat
       color: rgba(255, 255, 255, 0.6);
       font-size: 14px;
     }
+
+    /* Detail Loading State */
+    .detail-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      gap: 16px;
+    }
+
+    .detail-loading .spinner {
+      width: 32px;
+      height: 32px;
+      border: 2px solid rgba(0, 212, 170, 0.2);
+      border-top-color: #00d4aa;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .detail-loading p {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 13px;
+    }
     
     @media (max-width: 1200px) {
       .submissions-container {
@@ -1010,6 +1041,7 @@ export class SubmissionsComponent implements OnInit {
   readonly submissions = signal<SubmissionApiResponse[]>([]);
   readonly loading = signal<boolean>(false);
   readonly actionLoading = signal<boolean>(false);
+  readonly detailLoading = signal<boolean>(false);
   readonly totalCount = signal<number>(0);
   
   searchQuery: string = '';
@@ -1092,8 +1124,27 @@ export class SubmissionsComponent implements OnInit {
     this.loadSubmissions();
   }
   
+  /**
+   * Selects a submission and fetches its full details from the API
+   * @param submission - The submission from the list
+   */
   selectSubmission(submission: SubmissionApiResponse): void {
+    // Set the submission immediately for UI feedback
     this.selectedSubmission.set(submission);
+    
+    // Fetch full details from API
+    this.detailLoading.set(true);
+    this.apiService.getSubmissionById(submission.request_id).subscribe({
+      next: (fullSubmission: SubmissionApiResponse) => {
+        this.selectedSubmission.set(fullSubmission);
+        this.detailLoading.set(false);
+      },
+      error: (error: Error) => {
+        console.error('Failed to load submission details:', error);
+        this.detailLoading.set(false);
+        // Keep the list submission as fallback
+      }
+    });
   }
   
   clearSelection(): void {
@@ -1202,13 +1253,33 @@ export class SubmissionsComponent implements OnInit {
 
   /**
    * Converts submission_json to array of key-value pairs for display
+   * Handles nested objects by flattening them
    */
   getSubmissionDataEntries(data: Record<string, unknown> | null | undefined): Array<{ key: string; value: string }> {
     if (!data) return [];
-    return Object.entries(data).map(([key, value]) => ({
-      key: key,
-      value: String(value)
-    }));
+    
+    const flattenObject = (obj: Record<string, unknown>, prefix: string = ''): Array<{ key: string; value: string }> => {
+      const entries: Array<{ key: string; value: string }> = [];
+      
+      for (const [key, value] of Object.entries(obj)) {
+        const newKey = prefix ? `${prefix}.${key}` : key;
+        
+        if (value === null || value === undefined) {
+          entries.push({ key: newKey, value: 'N/A' });
+        } else if (typeof value === 'object' && !Array.isArray(value)) {
+          // Recursively flatten nested objects
+          entries.push(...flattenObject(value as Record<string, unknown>, newKey));
+        } else if (Array.isArray(value)) {
+          entries.push({ key: newKey, value: JSON.stringify(value) });
+        } else {
+          entries.push({ key: newKey, value: String(value) });
+        }
+      }
+      
+      return entries;
+    };
+    
+    return flattenObject(data);
   }
   
   formatDate(dateStr: string | Date): string {
