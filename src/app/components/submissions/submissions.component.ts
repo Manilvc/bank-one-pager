@@ -217,7 +217,18 @@ import { PresentationSubmission, SubmissionStatus } from '../../models/presentat
                     @for (entry of getSubmissionDataEntries(selectedSubmission()?.submission_json); track entry.key) {
                       <div class="field-item">
                         <span class="field-label">{{ entry.key }}</span>
-                        <span class="field-value">{{ entry.value }}</span>
+                        @if (isImageUrl(entry.value)) {
+                          <div class="field-image-container">
+                            <img 
+                              [src]="entry.value" 
+                              [alt]="entry.key"
+                              class="field-image"
+                              (error)="onImageError($event)"
+                              loading="lazy">
+                          </div>
+                        } @else {
+                          <span class="field-value">{{ entry.value }}</span>
+                        }
                       </div>
                     }
                   </div>
@@ -830,6 +841,31 @@ import { PresentationSubmission, SubmissionStatus } from '../../models/presentat
       font-size: 14px;
       color: #fff;
       font-weight: 500;
+      word-break: break-word;
+    }
+
+    .field-image-container {
+      margin-top: 8px;
+      display: flex;
+      justify-content: flex-start;
+    }
+
+    .field-image {
+      max-width: 200px;
+      max-height: 200px;
+      width: auto;
+      height: auto;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      object-fit: contain;
+      background: rgba(255, 255, 255, 0.02);
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .field-image:hover {
+      transform: scale(1.05);
+      border-color: rgba(0, 212, 170, 0.3);
     }
     
     .review-comments {
@@ -1280,6 +1316,38 @@ export class SubmissionsComponent implements OnInit {
     };
     
     return flattenObject(data);
+  }
+
+  /**
+   * Checks if a string value is an image URL
+   * @param value - The value to check
+   * @returns true if the value appears to be an image URL
+   */
+  isImageUrl(value: string): boolean {
+    if (!value || typeof value !== 'string') return false;
+    
+    // Check if it's a valid URL
+    try {
+      const url = new URL(value);
+      const pathname = url.pathname.toLowerCase();
+      
+      // Check for common image extensions
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.ico'];
+      return imageExtensions.some(ext => pathname.endsWith(ext));
+    } catch {
+      // Not a valid URL
+      return false;
+    }
+  }
+
+  /**
+   * Handles image loading errors
+   * @param event - The error event
+   */
+  onImageError(event: Event): void {
+    const img = event.target as HTMLImageElement;
+    img.style.display = 'none';
+    // Optionally show a placeholder or error message
   }
   
   formatDate(dateStr: string | Date): string {
