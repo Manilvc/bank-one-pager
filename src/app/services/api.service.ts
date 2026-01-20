@@ -106,6 +106,27 @@ export class ApiService {
   }
 
   /**
+   * Fetches list of presentations from API
+   */
+  getPresentations(): Observable<PresentationApiResponse[]> {
+    return this.http.get<ApiListResponse<PresentationApiResponse>>(`${this.baseUrl}/presentations`).pipe(
+      map((response: ApiListResponse<PresentationApiResponse>) => response.data || [])
+    );
+  }
+
+  /**
+   * Fetches a single presentation by definition ID
+   * @param definitionId - The presentation definition ID
+   */
+  getPresentationById(definitionId: string): Observable<PresentationApiResponse> {
+    return this.http.get<{ success: boolean; message: string; data: PresentationApiResponse }>(
+      `${this.baseUrl}/presentations/${definitionId}`
+    ).pipe(
+      map((response) => response.data)
+    );
+  }
+
+  /**
    * Fetches dashboard statistics
    */
   getDashboardStatistics(): Observable<DashboardStatistics> {
@@ -189,18 +210,31 @@ export interface CreatePresentationRequest {
 }
 
 /**
- * API response for presentation creation
+ * Requested field in presentation
+ */
+export interface PresentationRequestedField {
+  field_id: number;
+  field_key: string;
+  field_name: string;
+  is_required: boolean;
+}
+
+/**
+ * API response for presentation (list and detail)
  */
 export interface PresentationApiResponse {
-  id: number;
-  presentation_id: string;
-  subject_id: number;
+  id?: number;
+  presentation_id?: string | null;
+  definition_id?: string;
+  subject_id?: number;
   account_type: string;
-  qr_code_url: string;
-  qr_code_data: string;
+  document_name?: string;
+  qr_code_url?: string | null;
+  qr_code_data?: string | null;
   status: string;
   created_at: string;
   expires_at: string;
+  requested_fields?: PresentationRequestedField[];
 }
 
 /**
