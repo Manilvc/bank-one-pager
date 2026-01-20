@@ -88,6 +88,11 @@
                   "with": "src/environments/environment.development.ts"
                 }
               ]
+            },
+            "local": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
             }
           },
           "defaultConfiguration": "production"
@@ -100,9 +105,12 @@
             },
             "development": {
               "buildTarget": "bank-app:build:development"
+            },
+            "local": {
+              "buildTarget": "bank-app:build:local"
             }
           },
-          "defaultConfiguration": "development"
+          "defaultConfiguration": "local"
         }
       }
     }

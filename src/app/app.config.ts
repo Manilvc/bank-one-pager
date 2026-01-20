@@ -4,6 +4,8 @@ import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/
 
 import { routes } from './app.routes';
 import { ngrokInterceptor } from './interceptors/ngrok.interceptor';
+import { authInterceptor } from './interceptors/auth.interceptor';
+import { errorInterceptor } from './interceptors/error.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -11,7 +13,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(
       withFetch(),
-      withInterceptors([ngrokInterceptor])
+      withInterceptors([ngrokInterceptor, authInterceptor, errorInterceptor])
     )
   ]
 };

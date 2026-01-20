@@ -1,32 +1,31 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
-import { BankService } from '../../services/bank.service';
 import { ApiService } from '../../services/api.service';
 import { AuthService, UserInfo } from '../../services/auth.service';
 
 /**
- * Main layout component with navigation sidebar
+ * Hotel-specific layout component with different theme and navigation
  */
 @Component({
-  selector: 'app-layout',
+  selector: 'app-hotel-layout',
   standalone: true,
   imports: [CommonModule, RouterModule],
   template: `
-    <div class="layout">
+    <div class="hotel-layout">
       <!-- Sidebar Navigation -->
       <aside class="sidebar">
         <div class="logo">
           <div class="logo-icon">
             <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2L2 7v2h20V7L12 2zm0 2.5L18.5 7h-13L12 4.5zM4 11v8h3v-8H4zm5 0v8h3v-8H9zm5 0v8h3v-8h-3zm5 0v8h3v-8h-3zM2 21h20v2H2v-2z"/>
+              <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3zm0-13C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
             </svg>
           </div>
-          <span class="logo-text">NeoBank</span>
+          <span class="logo-text">HotelHub</span>
         </div>
         
         <nav class="nav-menu">
-          <a routerLink="/dashboard" routerLinkActive="active" class="nav-item">
+          <a routerLink="/hotel/dashboard" routerLinkActive="active" class="nav-item">
             <span class="nav-icon">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
@@ -35,34 +34,22 @@ import { AuthService, UserInfo } from '../../services/auth.service';
             <span class="nav-text">Dashboard</span>
           </a>
           
-          <a routerLink="/account-opening" routerLinkActive="active" class="nav-item">
+          <a routerLink="/hotel/checkin" routerLinkActive="active" class="nav-item">
+            <span class="nav-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </span>
+            <span class="nav-text">Check-In</span>
+          </a>
+          
+          <a routerLink="/hotel/checkout" routerLinkActive="active" class="nav-item">
             <span class="nav-icon">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
               </svg>
             </span>
-            <span class="nav-text">Account Opening</span>
-          </a>
-          
-          <a routerLink="/submissions" routerLinkActive="active" class="nav-item">
-            <span class="nav-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-              </svg>
-            </span>
-            <span class="nav-text">Submissions</span>
-            @if (pendingCount() > 0) {
-              <span class="badge">{{ pendingCount() }}</span>
-            }
-          </a>
-          
-          <a routerLink="/presentations" routerLinkActive="active" class="nav-item">
-            <span class="nav-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 5H1v16c0 1.1.9 2 2 2h16v-2H3V5zm18-4H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 16H7V3h14v14zm-8-2h2v-4h4v-2h-4V5h-2v4H9v2h4z"/>
-              </svg>
-            </span>
-            <span class="nav-text">QR Definitions</span>
+            <span class="nav-text">Check-Out</span>
           </a>
         </nav>
         
@@ -70,20 +57,14 @@ import { AuthService, UserInfo } from '../../services/auth.service';
           <button 
             type="button" 
             class="switch-mode-btn" 
-            (click)="switchToHotel()"
-            (mousedown)="$event.preventDefault(); switchToHotel()"
-            (touchstart)="switchToHotel()"
+            (click)="switchToBank()"
+            (mousedown)="$event.preventDefault(); switchToBank()"
+            (touchstart)="switchToBank()"
           >
             <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3zm0-13C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>
-            <span>Switch to Hotel</span>
-          </button>
-          <button class="logout-btn" (click)="logout()">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
-            </svg>
-            <span>Logout</span>
+            <span>Switch to Bank</span>
           </button>
           <div class="user-info">
             <div class="avatar">{{ getUserInitials() }}</div>
@@ -107,21 +88,23 @@ import { AuthService, UserInfo } from '../../services/auth.service';
     </div>
   `,
   styles: [`
-    .layout {
+    .hotel-layout {
       display: flex;
       min-height: 100vh;
-      background: #0a0a0f;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
     }
     
     .sidebar {
       width: 280px;
-      background: linear-gradient(180deg, #12121a 0%, #0d0d14 100%);
-      border-right: 1px solid rgba(255, 255, 255, 0.06);
+      background: linear-gradient(180deg, rgba(26, 26, 46, 0.95) 0%, rgba(15, 52, 96, 0.95) 100%);
+      backdrop-filter: blur(10px);
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
       display: flex;
       flex-direction: column;
       position: fixed;
       height: 100vh;
       z-index: 100;
+      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
     }
     
     .logo {
@@ -132,14 +115,15 @@ import { AuthService, UserInfo } from '../../services/auth.service';
     }
     
     .logo-icon {
-      width: 40px;
-      height: 40px;
-      background: linear-gradient(135deg, #00d4aa 0%, #00a085 100%);
-      border-radius: 12px;
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #0a0a0f;
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
     }
     
     .logo-icon svg {
@@ -149,9 +133,9 @@ import { AuthService, UserInfo } from '../../services/auth.service';
     
     .logo-text {
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 24px;
-      font-weight: 600;
-      background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
+      font-size: 26px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -159,32 +143,35 @@ import { AuthService, UserInfo } from '../../services/auth.service';
     
     .nav-menu {
       flex: 1;
-      padding: 0 12px;
+      padding: 0 16px;
+      overflow-y: auto;
     }
     
     .nav-item {
       display: flex;
       align-items: center;
       gap: 14px;
-      padding: 14px 16px;
-      margin: 4px 0;
-      border-radius: 12px;
-      color: rgba(255, 255, 255, 0.6);
+      padding: 16px 18px;
+      margin: 6px 0;
+      border-radius: 14px;
+      color: rgba(255, 255, 255, 0.7);
       text-decoration: none;
       font-size: 15px;
       font-weight: 500;
-      transition: all 0.2s ease;
+      transition: all 0.3s ease;
       position: relative;
     }
     
     .nav-item:hover {
-      background: rgba(255, 255, 255, 0.04);
-      color: rgba(255, 255, 255, 0.9);
+      background: rgba(240, 147, 251, 0.1);
+      color: rgba(255, 255, 255, 0.95);
+      transform: translateX(4px);
     }
     
     .nav-item.active {
-      background: linear-gradient(135deg, rgba(0, 212, 170, 0.15) 0%, rgba(0, 160, 133, 0.1) 100%);
-      color: #00d4aa;
+      background: linear-gradient(135deg, rgba(240, 147, 251, 0.2) 0%, rgba(245, 87, 108, 0.2) 100%);
+      color: #f093fb;
+      box-shadow: 0 4px 15px rgba(240, 147, 251, 0.2);
     }
     
     .nav-item.active::before {
@@ -193,26 +180,10 @@ import { AuthService, UserInfo } from '../../services/auth.service';
       left: 0;
       top: 50%;
       transform: translateY(-50%);
-      width: 3px;
-      height: 24px;
-      background: #00d4aa;
+      width: 4px;
+      height: 32px;
+      background: linear-gradient(180deg, #f093fb 0%, #f5576c 100%);
       border-radius: 0 4px 4px 0;
-    }
-    
-    .nav-divider {
-      height: 1px;
-      background: rgba(255, 255, 255, 0.06);
-      margin: 16px 12px;
-    }
-    
-    .nav-section-label {
-      padding: 8px 16px;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: rgba(255, 255, 255, 0.3);
-      margin-top: 8px;
     }
     
     .nav-icon {
@@ -230,19 +201,20 @@ import { AuthService, UserInfo } from '../../services/auth.service';
     
     .badge {
       margin-left: auto;
-      background: #ff4757;
-      color: white;
+      background: linear-gradient(135deg, #f5576c 0%, #c0392b 100%);
+      color: #fff;
       font-size: 11px;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 10px;
-      min-width: 20px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 12px;
+      min-width: 24px;
       text-align: center;
+      box-shadow: 0 2px 8px rgba(245, 87, 108, 0.4);
     }
     
     .sidebar-footer {
-      padding: 20px;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 20px 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
       position: relative;
       z-index: 1;
     }
@@ -274,14 +246,14 @@ import { AuthService, UserInfo } from '../../services/auth.service';
     }
     
     .switch-mode-btn:focus {
-      outline: 2px solid rgba(0, 212, 170, 0.5);
+      outline: 2px solid rgba(240, 147, 251, 0.5);
       outline-offset: 2px;
     }
     
     .switch-mode-btn:hover {
       background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(0, 212, 170, 0.3);
-      color: #00d4aa;
+      border-color: rgba(240, 147, 251, 0.3);
+      color: #f093fb;
       transform: translateY(-2px);
     }
     
@@ -299,80 +271,67 @@ import { AuthService, UserInfo } from '../../services/auth.service';
       pointer-events: none;
     }
     
-    .logout-btn {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 16px;
-      margin-bottom: 16px;
-      background: rgba(255, 71, 87, 0.1);
-      border: 1px solid rgba(255, 71, 87, 0.2);
-      border-radius: 12px;
-      color: rgba(255, 71, 87, 0.9);
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-    
-    .logout-btn:hover {
-      background: rgba(255, 71, 87, 0.2);
-      border-color: rgba(255, 71, 87, 0.4);
-      color: #ff4757;
-      transform: translateY(-2px);
-    }
-    
-    .logout-btn svg {
-      width: 18px;
-      height: 18px;
-    }
-    
     .user-info {
       display: flex;
       align-items: center;
       gap: 12px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
     }
     
     .avatar {
-      width: 42px;
-      height: 42px;
+      width: 40px;
+      height: 40px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
       font-weight: 600;
+      color: #fff;
       font-size: 14px;
     }
     
     .user-details {
+      flex: 1;
       display: flex;
       flex-direction: column;
+      gap: 2px;
     }
     
     .user-name {
-      color: rgba(255, 255, 255, 0.9);
-      font-weight: 500;
       font-size: 14px;
+      font-weight: 600;
+      color: #fff;
     }
     
     .user-role {
-      color: rgba(255, 255, 255, 0.4);
       font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
     }
     
     .main-content {
       flex: 1;
       margin-left: 280px;
       padding: 32px;
-      overflow-y: auto;
+      min-height: 100vh;
+    }
+    
+    @media (max-width: 768px) {
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+      }
+      
+      .main-content {
+        margin-left: 0;
+        padding: 16px;
+      }
     }
   `]
 })
-export class LayoutComponent implements OnInit {
-  private readonly bankService = inject(BankService);
+export class HotelLayoutComponent implements OnInit {
   private readonly apiService = inject(ApiService);
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
@@ -387,40 +346,26 @@ export class LayoutComponent implements OnInit {
   }
 
   /**
-   * Loads pending submissions count from API
+   * Loads pending check-out count
    */
   private loadPendingCount(): void {
     this.apiService.getSubmissions({ status: 'pending', limit: 1 }).subscribe({
-      next: (response: { data: unknown[]; total: number }) => {
-        this.pendingCount.set(response.total);
-      },
-      error: (error: Error) => {
-        console.error('Failed to load pending count:', error);
+      next: (response: { data: any[]; total: number }) => {
+        // Filter for hotel-related submissions
+        const hotelPending = response.data.filter((sub: any) => 
+          this.isRoomType(sub.account_type)
+        );
+        this.pendingCount.set(hotelPending.length > 0 ? response.total : 0);
       }
     });
   }
 
   /**
-   * Switches to hotel mode - navigates to hotel login page
+   * Checks if account_type is a room type
    */
-  switchToHotel(): void {
-    console.log('Switch to Hotel clicked');
-    try {
-      // Clear auth state
-      this.authService.clearAuth();
-      // Navigate to login with hotel theme
-      this.router.navigate(['/login'], { queryParams: { theme: 'hotel', mode: 'login' } }).then(() => {
-        console.log('Navigation successful');
-      }).catch((error) => {
-        console.error('Navigation error:', error);
-        // Fallback: try window.location if router fails
-        window.location.href = '/login?theme=hotel&mode=login';
-      });
-    } catch (error) {
-      console.error('Error in switchToHotel:', error);
-      // Fallback navigation
-      window.location.href = '/login?theme=hotel&mode=login';
-    }
+  private isRoomType(accountType: string): boolean {
+    const roomTypes = ['Standard Room', 'Deluxe Room', 'Suite', 'Presidential Suite'];
+    return roomTypes.some((type: string) => accountType.includes(type));
   }
 
   /**
@@ -470,9 +415,25 @@ export class LayoutComponent implements OnInit {
   }
 
   /**
-   * Logs out the current user
+   * Switches to bank mode - navigates to bank login page
    */
-  logout(): void {
-    this.authService.logout().subscribe();
+  switchToBank(): void {
+    console.log('Switch to Bank clicked');
+    try {
+      // Clear auth state
+      this.authService.clearAuth();
+      // Navigate to login with bank theme
+      this.router.navigate(['/login'], { queryParams: { theme: 'bank', mode: 'login' } }).then(() => {
+        console.log('Navigation successful');
+      }).catch((error) => {
+        console.error('Navigation error:', error);
+        // Fallback: try window.location if router fails
+        window.location.href = '/login?theme=bank&mode=login';
+      });
+    } catch (error) {
+      console.error('Error in switchToBank:', error);
+      // Fallback navigation
+      window.location.href = '/login?theme=bank&mode=login';
+    }
   }
 }
