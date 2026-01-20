@@ -50,11 +50,20 @@ export interface PresentationDefinition {
   purpose: string;
   accountType: AccountType;
   documentType: DocumentType;
+  documentName?: string;
   format?: PresentationDefinitionFormat;
   input_descriptors: InputDescriptor[];
+  requestedFields?: Array<{
+    field_id: number;
+    field_key: string;
+    field_name: string;
+    is_required: boolean;
+  }>;
+  status?: string;
   createdAt: Date;
   expiresAt: Date;
   qrCodeData?: string;
+  qrCodeUrl?: string;
 }
 
 /**
