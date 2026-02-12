@@ -111,29 +111,65 @@ import { AuthService, RegisterRequest } from '../../services/auth.service';
           
           <div class="form-group">
             <label for="password">Password <span class="required">*</span></label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              [(ngModel)]="registrationData.password"
-              required
-              minlength="6"
-              [disabled]="loading()"
-              placeholder="Create a password (min. 6 characters)"
-              class="form-input">
+            <div class="password-input-wrapper">
+              <input
+                [type]="showPassword() ? 'text' : 'password'"
+                id="password"
+                name="password"
+                [(ngModel)]="registrationData.password"
+                required
+                minlength="6"
+                [disabled]="loading()"
+                placeholder="Create a password (min. 6 characters)"
+                class="form-input">
+              <button
+                type="button"
+                class="password-toggle-btn"
+                (click)="togglePasswordVisibility()"
+                [disabled]="loading()"
+                tabindex="-1">
+                @if (showPassword()) {
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
+                  </svg>
+                } @else {
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                  </svg>
+                }
+              </button>
+            </div>
           </div>
 
           <div class="form-group">
             <label for="confirm_password">Confirm Password <span class="required">*</span></label>
-            <input
-              type="password"
-              id="confirm_password"
-              name="confirm_password"
-              [(ngModel)]="registrationData.confirm_password"
-              required
-              [disabled]="loading()"
-              placeholder="Confirm your password"
-              class="form-input">
+            <div class="password-input-wrapper">
+              <input
+                [type]="showConfirmPassword() ? 'text' : 'password'"
+                id="confirm_password"
+                name="confirm_password"
+                [(ngModel)]="registrationData.confirm_password"
+                required
+                [disabled]="loading()"
+                placeholder="Confirm your password"
+                class="form-input">
+              <button
+                type="button"
+                class="password-toggle-btn"
+                (click)="toggleConfirmPasswordVisibility()"
+                [disabled]="loading()"
+                tabindex="-1">
+                @if (showConfirmPassword()) {
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
+                  </svg>
+                } @else {
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                  </svg>
+                }
+              </button>
+            </div>
             @if (registrationData.password && registrationData.confirm_password && 
                  registrationData.password !== registrationData.confirm_password) {
               <span class="field-error">Passwords do not match</span>
@@ -274,6 +310,53 @@ import { AuthService, RegisterRequest } from '../../services/auth.service';
       font-size: 14px;
       font-weight: 500;
       color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .password-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    
+    .password-input-wrapper .form-input {
+      padding-right: 48px;
+    }
+    
+    .password-toggle-btn {
+      position: absolute;
+      right: 12px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.5);
+      transition: color 0.2s ease;
+      outline: none;
+    }
+    
+    .password-toggle-btn:hover:not(:disabled) {
+      color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .password-toggle-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .password-toggle-btn svg {
+      width: 20px;
+      height: 20px;
+    }
+    
+    .register-container.bank-theme .password-toggle-btn:hover:not(:disabled) {
+      color: #00d4aa;
+    }
+    
+    .register-container.hotel-theme .password-toggle-btn:hover:not(:disabled) {
+      color: #f093fb;
     }
     
     .form-input {
@@ -424,6 +507,8 @@ export class RegisterComponent {
   
   readonly loading = signal<boolean>(false);
   readonly error = signal<string | null>(null);
+  readonly showPassword = signal<boolean>(false);
+  readonly showConfirmPassword = signal<boolean>(false);
   
   registrationData: RegisterRequest & { confirm_password: string } = {
     email: '',
@@ -501,5 +586,19 @@ export class RegisterComponent {
   goToLogin(): void {
     const theme = this.theme();
     this.router.navigate(['/login'], { queryParams: { theme, mode: 'login' } });
+  }
+
+  /**
+   * Toggles password visibility
+   */
+  togglePasswordVisibility(): void {
+    this.showPassword.set(!this.showPassword());
+  }
+
+  /**
+   * Toggles confirm password visibility
+   */
+  toggleConfirmPasswordVisibility(): void {
+    this.showConfirmPassword.set(!this.showConfirmPassword());
   }
 }
