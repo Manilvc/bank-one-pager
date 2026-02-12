@@ -3,5 +3,5 @@
  */
 export const environment = {
   production: true,
-  apiBaseUrl: 'https://api.production.example.com/api/v1'
+  apiBaseUrl: 'https://demo-dcs-api-us.everycred.com/api/v1'
 };
